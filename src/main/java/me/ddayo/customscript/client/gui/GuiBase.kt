@@ -17,7 +17,7 @@ open class GuiBase: Screen(StringTextComponent.EMPTY) {
 
     protected fun mouseHandler(mouseX: Double, mouseY: Double, x: (Double, Double) -> Boolean) = x((mouseX - ((width - height * 16.0 / 9) / 2)) * 1080 / height, mouseY * 1080 / height)
 
-    override fun init() {
+    public override fun init() {
         Minecraft.getInstance().skipRenderWorld = false
         super.init()
     }

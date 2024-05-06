@@ -1,8 +1,11 @@
 package me.ddayo.customscript.client.gui.script.blocks
 
 import me.ddayo.customscript.client.gui.RenderUtil
-import me.ddayo.customscript.client.gui.script.ScriptGui
-import me.ddayo.customscript.util.js.*
+import me.ddayo.customscript.client.gui.script.CSExecutor
+import me.ddayo.customscript.util.js.DoubleCalculable
+import me.ddayo.customscript.util.js.ICalculableHolder
+import me.ddayo.customscript.util.js.IntCalculable
+import me.ddayo.customscript.util.js.StringCalculable
 import me.ddayo.customscript.util.options.Option
 import me.ddayo.customscript.util.options.Option.Companion.string
 import net.minecraft.client.Minecraft
@@ -12,18 +15,17 @@ import net.minecraft.util.ResourceLocation
 import net.minecraftforge.registries.ForgeRegistries
 import org.apache.logging.log4j.LogManager
 
-class RenderItemBlock: BlockBase() {
-    private lateinit var item: StringCalculable
-    private lateinit var x: IntCalculable
-    private lateinit var y: IntCalculable
-    private lateinit var size: DoubleCalculable
-    override fun parseContext(context: Option) {
-        item = StringCalculable(context["Item"].string!!)
 
-        x = IntCalculable(context["X"].string!!)
-        y = IntCalculable(context["Y"].string!!)
-        size = DoubleCalculable(context["Size"].string!!)
-    }
+object RenderItemBlockInitializer: BlockInitializer {
+    override val name = "RenderItemBlock"
+    override fun initialize(context: Option) = RenderItemBlock(context)
+}
+
+class RenderItemBlock(context: Option): BlockBase(context) {
+    private val item = StringCalculable(context["Item"].string!!)
+    private val x = IntCalculable(context["X"].string!!)
+    private val y = IntCalculable(context["Y"].string!!)
+    private val size = DoubleCalculable(context["Size"].string!!)
 
     class RenderItemRenderer(private val item: StringCalculable, private val x: IntCalculable, private val y: IntCalculable, private val size: DoubleCalculable): ScriptRenderer(), ICalculableHolder {
         override fun RenderUtil.renderInternal() {
@@ -34,8 +36,8 @@ class RenderItemBlock: BlockBase() {
             }, x.get, y.get)
         }
 
-        override val renderParse: ScriptGui.RenderParse
-            get() = ScriptGui.RenderParse.Main
+        override val renderParse: CSExecutor.RenderParse
+            get() = CSExecutor.RenderParse.Main
         override val calculable by lazy { listOf(item, x, y, size) }
         override val isLoading = false
     }

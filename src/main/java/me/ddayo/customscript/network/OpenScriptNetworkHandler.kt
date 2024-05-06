@@ -1,10 +1,10 @@
 package me.ddayo.customscript.network
 
-import me.ddayo.customscript.client.gui.script.ScriptGui
-import me.ddayo.customscript.client.gui.script.ScriptMode
-import net.minecraft.client.Minecraft
+import me.ddayo.customscript.client.ClientDataHandler
+import me.ddayo.customscript.client.gui.script.CSExecutor
 import net.minecraft.network.PacketBuffer
 import net.minecraftforge.fml.network.NetworkEvent
+import org.apache.logging.log4j.LogManager
 import java.util.function.Supplier
 
 class OpenScriptNetworkHandler() {
@@ -26,10 +26,14 @@ class OpenScriptNetworkHandler() {
             val ctx = ctxSuf.get()
             ctx.packetHandled = true
             ctx.enqueueWork {
-                Minecraft.getInstance().displayGuiScreen(ScriptGui.fromFile(ScriptMode.Gui, script, begin))
+                val sc = CSExecutor.fromFile(script, begin, true)
+                if(sc == null) {
+                    LogManager.getLogger().info("Cannot load script: $script")
+                    return@enqueueWork
+                }
+                ClientDataHandler.addScreen(sc)
             }
         }
-
 
         @JvmStatic
         fun decode(buf: PacketBuffer) = OpenScriptNetworkHandler(buf.readString(), buf.readString())

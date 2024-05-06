@@ -1,11 +1,7 @@
 package me.ddayo.customscript.client.script
 
 import jdk.nashorn.api.scripting.NashornScriptEngineFactory
-import me.ddayo.customscript.client.gui.script.ScriptGui
-import me.ddayo.customscript.client.gui.script.ScriptMode
-import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import javax.script.ScriptEngineManager
 
 internal class ScriptGuiTest {
     @Test

@@ -4,7 +4,7 @@ import com.mojang.blaze3d.matrix.MatrixStack
 import me.ddayo.customscript.client.gui.FontResource
 import me.ddayo.customscript.client.gui.RenderUtil
 import me.ddayo.customscript.client.gui.font.FontedText
-import me.ddayo.customscript.client.gui.script.ScriptGui
+import me.ddayo.customscript.client.gui.script.CSExecutor
 import me.ddayo.customscript.util.js.DoubleCalculable
 import me.ddayo.customscript.util.js.ICalculableHolder
 import me.ddayo.customscript.util.js.StringCalculable
@@ -12,7 +12,14 @@ import me.ddayo.customscript.util.options.Option
 import me.ddayo.customscript.util.options.Option.Companion.string
 import net.minecraft.client.Minecraft
 
-class TextBlock : BlockBase() {
+
+object TextBlockInitializer: BlockInitializer {
+    override val name = "TextBlock"
+
+    override fun initialize(context: Option) = TextBlock(context)
+}
+
+class TextBlock(context: Option) : BlockBase(context) {
     private class TextScriptRenderer(
         private val text: StringCalculable,
         private val textX: DoubleCalculable,
@@ -35,8 +42,8 @@ class TextBlock : BlockBase() {
             }
         }
 
-        override val renderParse: ScriptGui.RenderParse
-            get() = ScriptGui.RenderParse.Post
+        override val renderParse: CSExecutor.RenderParse
+            get() = CSExecutor.RenderParse.Post
 
         override fun onRemovedFromQueue() {
             if (usingCustomFont)
@@ -63,23 +70,12 @@ class TextBlock : BlockBase() {
             get() = usingCustomFont && !FontResource.getOrCreate(textFont).isLoaded
     }
 
-    private lateinit var text: StringCalculable
-    private lateinit var textX: DoubleCalculable
-    private lateinit var textY: DoubleCalculable
-    private lateinit var textScale: DoubleCalculable
-
-    private var textFont = ""
-
-    private var textColor = 0xffffffu
-
-    override fun parseContext(context: Option) {
-        text = StringCalculable(context["Text"].string!!)
-        textX = DoubleCalculable(context["TextX"].string!!)
-        textY = DoubleCalculable(context["TextY"].string!!)
-        textScale = DoubleCalculable(context["TextScale"].string ?: "1.0")
-        textFont = context["TextFont"].string ?: ""
-        textColor = (context["TextColor"].string ?: "ffffff").toUInt(16)
-    }
+    private val text = StringCalculable(context["Text"].string!!)
+    private val textX = DoubleCalculable(context["TextX"].string!!)
+    private val textY = DoubleCalculable(context["TextY"].string!!)
+    private val textScale = DoubleCalculable(context["TextScale"].string ?: "1.0")
+    private val textFont = context["TextFont"].string ?: ""
+    private val textColor = (context["TextColor"].string ?: "ffffff").toUInt(16)
 
 
     override val rendererInstance: ScriptRenderer

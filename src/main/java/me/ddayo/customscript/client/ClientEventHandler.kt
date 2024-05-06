@@ -4,6 +4,8 @@ import com.mojang.blaze3d.matrix.MatrixStack
 import com.mojang.blaze3d.systems.RenderSystem
 import me.ddayo.customscript.client.gui.FontResource
 import me.ddayo.customscript.client.gui.ImageResource
+import me.ddayo.customscript.client.gui.RenderUtil
+import me.ddayo.customscript.client.gui.script.CSExecutor
 import me.ddayo.customscript.util.js.CalculableValueManager
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screen.MainMenuScreen
@@ -23,9 +25,17 @@ import java.util.concurrent.CompletableFuture
 object ClientEventHandler {
     @SubscribeEvent
     public fun onRenderHud(event: RenderGameOverlayEvent.Post) {
-        if(event.type != RenderGameOverlayEvent.ElementType.ALL) return
-        ClientDataHandler.enabledHud.forEach {
-            it.value.render(MatrixStack(), 0, 0, 0.0f)
+        if (event.type != RenderGameOverlayEvent.ElementType.ALL) return
+        RenderUtil.renderer.loadMatrix(event.matrixStack) {
+            FHDScale(event.window.scaledWidth, event.window.scaledHeight) {
+                ClientDataHandler.enabledHud.forEach {
+                    CSExecutor.RenderParse.values().forEach { ph ->
+                        it.value.renderable[ph]!!.forEach {
+                            it.render(RenderUtil.renderer)
+                        }
+                    }
+                }
+            }
         }
     }
 

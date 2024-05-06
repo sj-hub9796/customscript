@@ -2,14 +2,23 @@ package me.ddayo.customscript.client.gui.script.blocks
 
 import me.ddayo.customscript.client.gui.ImageResource
 import me.ddayo.customscript.client.gui.RenderUtil
-import me.ddayo.customscript.client.gui.script.ScriptGui
-import me.ddayo.customscript.util.js.*
+import me.ddayo.customscript.client.gui.script.CSExecutor
+import me.ddayo.customscript.util.js.DoubleCalculable
+import me.ddayo.customscript.util.js.ICalculableHolder
+import me.ddayo.customscript.util.js.StringCalculable
 import me.ddayo.customscript.util.options.Option
-import me.ddayo.customscript.util.options.Option.Companion.string
 import me.ddayo.customscript.util.options.Option.Companion.bool
-import net.minecraft.client.Minecraft
+import me.ddayo.customscript.util.options.Option.Companion.string
+import me.ddayo.goosegooseduck.client.math.Area
+import me.ddayo.goosegooseduck.client.math.Point.Companion.with
 
-class ButtonBlock : PendingBlock() {
+
+object ButtonBlockInitializer: BlockInitializer {
+    override val name = "ButtonBlock"
+    override fun initialize(context: Option) = ButtonBlock(context)
+}
+
+class ButtonBlock(context: Option) : PendingBlock(context) {
     private class ButtonRenderer(
         private val buttonX: DoubleCalculable,
         private val buttonY: DoubleCalculable,
@@ -29,40 +38,37 @@ class ButtonBlock : PendingBlock() {
                 }
         }
 
-        override val renderParse: ScriptGui.RenderParse
-            get() = ScriptGui.RenderParse.Main
+        override val renderParse: CSExecutor.RenderParse
+            get() = CSExecutor.RenderParse.Main
         override val isLoading: Boolean
             get() = !ImageResource.getOrCreate(buttonImage.get).isLoaded
 
         override val calculable by lazy { listOf(buttonX, buttonY, buttonWidth, buttonHeight, buttonImage) }
     }
 
-    private lateinit var buttonX: DoubleCalculable
-    private lateinit var buttonY: DoubleCalculable
-    private lateinit var buttonWidth: DoubleCalculable
-    private lateinit var buttonHeight: DoubleCalculable
-    private lateinit var buttonImage: StringCalculable
-    private var autoSize = false
-    private var advancedHitBox = false
-    private var hitBox = ""
-
-    override fun parseContext(context: Option) {
-        buttonX = DoubleCalculable(context["ButtonX"].string!!)
-        buttonY = DoubleCalculable(context["ButtonY"].string!!)
-        buttonWidth = DoubleCalculable(context["ButtonWidth"].string!!)
-        buttonHeight = DoubleCalculable(context["ButtonHeight"].string!!)
-        buttonImage = StringCalculable(context["ButtonImage"].string!!)
-        autoSize = context["AutoSize"].bool ?: false
-        advancedHitBox = context["AdvancedHitBox"].bool ?: false
-        hitBox = context["HitBox"].string ?: ""
+    private val buttonX = DoubleCalculable(context["ButtonX"].string!!)
+    private val buttonY = DoubleCalculable(context["ButtonY"].string!!)
+    private val buttonWidth = DoubleCalculable(context["ButtonWidth"].string!!)
+    private val buttonHeight = DoubleCalculable(context["ButtonHeight"].string!!)
+    private val buttonImage = StringCalculable(context["ButtonImage"].string!!)
+    private val autoSize = context["AutoSize"].bool ?: false
+    private val clickArea = context["AdvancedSize"].string?.let { ac ->
+        Area(*ac.split('|').map {
+            val a = it.split(',').map { v -> v.toDouble() }.toList()
+            a[0] with a[1]
+        }.toTypedArray())
     }
 
     override val rendererInstance: ScriptRenderer
         get() = ButtonRenderer(buttonX, buttonY, buttonWidth, buttonHeight, buttonImage, autoSize)
 
-    override fun validateKeyInput(gui: ScriptGui, keyCode: Int, scanCode: Int, modifier: Int) = PendingResult.Deny
+    override fun validateKeyInput(gui: CSExecutor, keyCode: Int, scanCode: Int, modifier: Int) = PendingResult.Deny<PendingBlock>()
 
-    override fun validateMouseInput(gui: ScriptGui, mouseX: Double, mouseY: Double, mouseButton: Int) =
-        if (mouseX in buttonX.get..(buttonX.get + buttonWidth.get) && mouseY in buttonY.get..(buttonY.get + buttonHeight.get)) PendingResult.Pass else PendingResult.Deny
+    override fun validateMouseInput(gui: CSExecutor, mouseX: Double, mouseY: Double, mouseButton: Int) =
+        PendingResult.trueThenPass<PendingBlock>(
+            clickArea?.isIn((mouseX with mouseY) - (buttonX.get with buttonY.get))
+                ?: (mouseX in buttonX.get..(buttonX.get + buttonWidth.get) && mouseY in buttonY.get..(buttonY.get + buttonHeight.get)),
+            this
+        )
 
 }

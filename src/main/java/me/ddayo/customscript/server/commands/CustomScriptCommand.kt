@@ -4,15 +4,14 @@ import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.StringArgumentType
 import com.mojang.brigadier.context.CommandContext
 import me.ddayo.customscript.CustomScript
+import me.ddayo.customscript.client.ClientDataHandler
 import me.ddayo.customscript.client.gui.FontResource
 import me.ddayo.customscript.client.gui.ImageResource
-import me.ddayo.customscript.client.gui.script.ScriptGui
-import me.ddayo.customscript.client.gui.script.ScriptMode
+import me.ddayo.customscript.client.gui.script.CSExecutor
 import me.ddayo.customscript.network.ClearCacheNetworkHandler
 import me.ddayo.customscript.network.ClearCacheNetworkHandler.CacheType
 import me.ddayo.customscript.server.ServerConfiguration
 import me.ddayo.customscript.server.ServerDataHandler
-import net.minecraft.client.Minecraft
 import net.minecraft.command.CommandSource
 import net.minecraft.command.Commands
 import net.minecraft.command.arguments.GameProfileArgument
@@ -20,7 +19,6 @@ import net.minecraft.util.text.StringTextComponent
 import net.minecraftforge.fml.network.NetworkDirection
 import net.minecraftforge.fml.server.ServerLifecycleHooks
 import org.apache.logging.log4j.LogManager
-import java.util.*
 
 object CustomScriptCommand: CommandHandler.ICommand {
     public val baseCommand = Commands.literal("cs")
@@ -230,7 +228,7 @@ object CustomScriptCommand: CommandHandler.ICommand {
             }
 
             if (CustomScript.isClient)
-                Minecraft.getInstance().displayGuiScreen(ScriptGui.fromFile(ScriptMode.Gui, script, begin))
+                ClientDataHandler.addScreen(CSExecutor.fromFile(script, begin, true)!!)
             else ServerDataHandler.openScriptOnPlayers(script, begin, *players.toTypedArray())
         } catch(e: Exception) {
             LogManager.getLogger().error(e.message)
