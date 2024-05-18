@@ -30,8 +30,7 @@ data class PendingFrame(override val currentBlock: BlockBase, val nextFrames: Li
 
 data class LastFrame(override val currentBlock: BlockBase) : ScriptFrame
 
-
-class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boolean) {
+class CSExecutor(private var current: ScriptFrame, global: Option, private val syncRequired: Boolean) {
     enum class RenderParse {
         Pre, Main, Post
     }
@@ -55,10 +54,11 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
         }
 
         fun fromString(script: String, beginPos: String, syncRequired: Boolean): CSExecutor {
-            return CSExecutor(Option.readOption(script), beginPos, syncRequired)
+            val opt = Option.readOption(script)
+            return CSExecutor(optionToFrame(opt, beginPos), opt, syncRequired)
         }
 
-        fun optionToFrame(script: Option, beginPos: String, syncRequired: Boolean): ScriptFrame {
+        fun optionToFrame(script: Option, beginPos: String): ScriptFrame {
             val blocks = script["Block"].map { BlockBase.createBlock(it.value, it) }
             val arrows = script["Arrow"].map { Arrow.createArrow(it.value, it) }
             val frames = mutableMapOf<Int, ScriptFrame>()
@@ -80,59 +80,45 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
 
     init {
         MinecraftForge.EVENT_BUS.register(this)
-        if (minimumRequiredVersion > DefaultArtifactVersion(script["Version"].string)) {
+        if (minimumRequiredVersion > DefaultArtifactVersion(global["Version"].string)) {
             Minecraft.getInstance().player?.sendMessage(
-                StringTextComponent("Not supported version: ${script["Version"].string}, Required: $minimumRequiredVersion"),
+                StringTextComponent("Not supported version: ${global["Version"].string}, Required: $minimumRequiredVersion"),
                 UUID.randomUUID()
             )
-            throw CompileError("Not supported version: ${script["Version"].string}, Required: $minimumRequiredVersion")
+            throw CompileError("Not supported version: ${global["Version"].string}, Required: $minimumRequiredVersion")
         }
     }
 
-    private val canMovePrevious = script["CanMovePrevious"].bool ?: false
-
-    private val blocks = script["Block"].map { BlockBase.createBlock(it.value, it) }
-    private val arrows = script["Arrow"].map { Arrow.createArrow(it.value, it) }
+    private val canMovePrevious = global["CanMovePrevious"].bool ?: false
 
     val renderable =
         mapOf(*RenderParse.values().map { Pair(it, emptyList<ScriptRenderer>().toMutableList()) }.toTypedArray())
-    private var current = blocks.filter { it is BeginBlock && it.label == beginPos }
-
-    init {
-        if (current.isEmpty()) throw CompileError("There are no begin block with label $beginPos")
-    }
-
-    private var pending = false
 
     private val trackPrev = Stack<Int>()
 
+    fun process() {
+        while(current is SingleFrame) {
+            trackPrev.push(current.currentBlock.ns)
+            current = (current as SingleFrame).nextFrame.value
+            current.currentBlock.onEnter(this)
+        }
+        if(current is LastFrame)
+            finish()
+        else (current as? PendingFrame)?.nextFrames?.forEach {
+            it.value.currentBlock.onEnter(this)
+        }
+    }
+
     init {
-        moveNext()
+        process()
     }
 
-    fun moveNext() {
-        if (pending) return
-        trackPrev.push(current.first().ns)
-        current = current.flatMap {
-            arrows.filter { it.from == trackPrev.peek() }.flatMap { to -> blocks.filter { it.ns == to.to } }
-        }
+    fun revert() {
+        if(current !is SingleFrame) return
 
-        if (current.size > 2) {
-            if (current.any { it !is PendingBlock }) throw CompileError("There are two+ non-multi-selectable blocks which is connect to current pos")
-            current.forEach {
-                it.onEnter(this)
-            }
-            pending = true
-        } else if (current.isEmpty()) finish()
-        else {
-            current.first().let {
-                it.onEnter(this)
-                pending = it is PendingBlock
-            }
-            if (!pending) moveNext()
-        }
     }
 
+    /*
     fun movePrev() {
         if (!pending) return
         current.forEach { (it as PendingBlock).onExitPending() }
@@ -149,34 +135,26 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
         }
     }
 
-    fun cancelPending(to: Int) {
-        if (!current.any { it.ns == to }) throw IllegalStateException("Not able to load $to")
-        if (!pending) throw IllegalStateException("Function is not pending")
+     */
 
-        current.forEach {
-            if (it !is PendingBlock) throw IllegalStateException("Not pending block")
-            it.onExitPending()
+    val isPending get() = current is PendingFrame
+
+    fun cancelPending(to: Int) {
+        if(current !is PendingFrame) throw IllegalStateException("Function is not pending")
+        val pf = (current as PendingFrame)
+        if(!pf.nextFrames.any { it.value.currentBlock.ns == to })
+            throw IllegalStateException("Not able to load $to")
+
+        pf.nextFrames.forEach {
+            (it.value.currentBlock as? PendingBlock)?.onExitPending() ?: throw IllegalStateException("Not pending block")
         }
 
         clearRenderer(RenderParse.Main)
         clearRenderer(RenderParse.Post)
 
         trackPrev.push(to)
-        current = current.filter { it.ns == to }
-            .flatMap { arrows.filter { it.from == to }.flatMap { to -> blocks.filter { it.ns == to.to } } }
-
-        if (current.size > 2) {
-            if (current.any { it !is PendingBlock }) throw CompileError("There are two+ non-multi-selectable blocks which is connect to current pos")
-            pending = true
-        } else if (current.isEmpty()) {
-            finish()
-        } else {
-            current.first().let {
-                it.onEnter(this)
-                pending = it is PendingBlock
-            }
-            if (!pending) moveNext()
-        }
+        current = pf.nextFrames.first { it.value.currentBlock.ns == to }.value
+        process()
     }
 
     private val pendingProcessor = object : PendingSwitch<PendingBlock> {
@@ -186,12 +164,12 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
     }
 
     fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): PendingResult<CSExecutor> {
-        if (!pending) return PendingResult.Deny()
+        if (!isPending) return PendingResult.Deny()
 
         if (canMovePrevious && button == 1) {
-            movePrev()
+            revert()
             return PendingResult.Applied(this)
-        } else return if (PendingResult.execute(current, pendingProcessor) {
+        } else return if (PendingResult.execute((current as PendingFrame).nextFrames, pendingProcessor) {
                 (it as PendingBlock).validateMouseInput(this, mouseX, mouseY, button)
             }) PendingResult.Yield() else PendingResult.Applied(this)
     }
@@ -208,9 +186,9 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
 
     fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): PendingResult<CSExecutor> {
         setKeyState(keyCode, true)
-        if (!pending) return PendingResult.Deny()
+        if (!isPending) return PendingResult.Deny()
 
-        return if (PendingResult.execute(current, pendingProcessor) {
+        return if (PendingResult.execute((current as PendingFrame).nextFrames, pendingProcessor) {
                 (it as PendingBlock).validateKeyInput(this, keyCode, scanCode, modifiers)
             }) PendingResult.Yield() else PendingResult.Applied(this)
     }
@@ -218,13 +196,13 @@ class CSExecutor(script: Option, beginPos: String, private val syncRequired: Boo
     fun keyReleased(keyCode: Int, scanCode: Int, modifiers: Int): PendingResult<CSExecutor> {
         setKeyState(keyCode, false)
 
-        if (!pending) return PendingResult.Yield()
+        if (!isPending) return PendingResult.Yield()
         return PendingResult.Yield() // TODO
     }
 
     fun tick(): PendingResult<CSExecutor> {
-        if (!pending) return PendingResult.Yield()
-        return if (PendingResult.execute(current, pendingProcessor) {
+        if (!isPending) return PendingResult.Yield()
+        return if (PendingResult.execute((current as PendingFrame).nextFrames, pendingProcessor) {
                 (it as PendingBlock).tick()
             }) PendingResult.Yield() else PendingResult.Applied(this)
     }
