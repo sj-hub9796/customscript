@@ -22,6 +22,6 @@ internal class ScriptGuiTest {
     @Test
     public fun luaTest() {
         val engine = LuaEngine()
-        val script = LuaScriptInstance("name", File("/Users/dayo/IdeaProjects/customscript16/src/main/java/me/ddayo/customscript/util/lua/example.lua").readText(), engine)
+        val script = LuaScriptInstance("name", File("C:\\Users\\dayo\\Desktop\\customscript\\src\\main\\java\\me\\ddayo\\customscript\\util\\lua\\example.lua").readText(), engine)
     }
 }

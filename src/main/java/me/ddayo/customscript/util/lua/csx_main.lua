@@ -1,40 +1,43 @@
-get_protected = function(rv)
-    local ev = {}
-    ev.__index = ev
-    setmetatable(ev, {
-        __index = function(t, k)
-            local a = rawget(t, k) or rv[k]
-            return a
-        end,
-        __newindex = function(t, k, v)
-            -- if rv[k] ~= nil then error("You cannot modify `" .. k .. "` :(") end
-            rawset(t, k, v)
-        end
-    })
-    return ev
-end
-
-loadScript = function(dir)
-    return loadfile(baseDir .. dir)
-end
-
 or_invoke = function(v)
     if type(v) == "function" then return v() else return v end
 end
 
-core_lib = {}
+chain_table = function(base, with)
+    local mt = getmetatable(base) or {}
+    setmetatable(base, {
+        __index = function(t, k)
+            -- error(type(mt))
+            -- error(type(mt.__index(t, k)))
+            local tr
+            if type(mt.__index) == 'table' then tr = mt.__index[k] else tr = mt.__index(t, k) end
+            return tr or with[k]
+        end
+    })
+end
+
+load_script = function(dir)
+    dir = base_dir .. '/' .. dir
+    return loadfile(dir)()
+end
+
 load_core_api = function(sc, name)
     load(sc, name, "t")()
 end
 
+local core_lib = {}
 load_core = function(sc, name)
     core_lib[name] = load(sc, name, "t")()
     if type(core_lib[name]) ~= 'function' then error("NIL recv") end
 end
 
+local core_lib_chain = {}
+load_core_extension = function(sc, name)
+    if core_lib_chain[name] == nil then core_lib_chain[name] = List:new() end
+    core_lib_chain[name]:push(load(sc, name, "t")())
+end
+
 load_scx = function(sc, name)
-    local ev
-    local nev = {
+    local ev = {
         next = next,
         pairs = pairs,
         select = select,
@@ -97,14 +100,19 @@ load_scx = function(sc, name)
             date = os.date,
             difftime = os.difftime,
             time = os.time
-        }
+        },
+        List = List,
+        cmath = cmath,
+        logger = logger
     }
     for k,v in pairs(core_lib) do
-        nev[k] = v(nev)
-        -- rawset(nev[k], "ev", ev)
+        ev[k] = v(ev)
     end
-
-    ev = get_protected(nev)
+    for k,v in pairs(core_lib_chain) do
+        for i=1,v.size do
+            chain_table(ev[k], v[i](ev, ev[k]))
+        end
+    end
 
     local efn, em = load(sc, name, "t", ev)
     if efn == nil then

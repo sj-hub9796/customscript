@@ -1,4 +1,7 @@
 local _csx = {}
+_csx.__index = _csx
+
+_csx.rule = load_script("csx/rule.lua")
 
 function _csx:push_stack(frame)
     if frame == nil then
@@ -114,11 +117,9 @@ function _csx:yield(...)
     end
 end
 
-_csx.__index = _csx
-
 local csx = {}
-function csx:new(ev, o)
-    o = o or { ev = ev, rule = self.rule:new(ev), gui = self.gui:new(ev), stack = List:new() }
+function csx:new(ev)
+    local o = { ev = ev, rule = _csx.rule(ev), stack = List:new() }
     setmetatable(o, _csx)
     return o
 end

@@ -1,15 +1,9 @@
 local _rule = {}
-
-function _rule:new(ev, o)
-    o = o or { ev = ev }
-    setmetatable(o, self)
-    return o
-end
+_rule.__index = _rule
 
 function _rule:on_mouse_click(area)
     local pressed = false
     self.ev.csx:register_event('on_mouse_release', function(p, btn)
-        self.ev.log:info(p.x .. ', ' .. p.y)
         if btn == 0 then
             pressed = pressed or area:is_in(p)
         end
@@ -17,4 +11,13 @@ function _rule:on_mouse_click(area)
     return function() return pressed end
 end
 
-return get_protected(_rule)
+local rule = {}
+function rule:new(ev, o)
+    o = o or {}
+    setmetatable(o, _rule)
+    return o
+end
+
+return function(ev)
+    return rule:new(ev)
+end

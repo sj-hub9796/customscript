@@ -1,16 +1,12 @@
 local lm = java.import('org.apache.logging.log4j.LogManager')
 
 local _log = {}
-function _log:new(ev, o)
-    o = o or { ev = ev }
-    setmetatable(o, self)
-    self.__index = self
-    return o
-end
+_log.__index = _log
 
 local get_logger = function(self)
-    if self.ev.csx == nil then return lm:getLogger("lua") end
-    return lm:getLogger(self.ev.csx:get_current_name())
+    if self.ev == nil or self.ev.csx == nil then return lm:getLogger("lua") end
+    local state = self.ev.csx:get_current_name()
+    return lm:getLogger(state)
 end
 
 function _log:info(msg)
@@ -29,7 +25,15 @@ function _log:warn(msg)
     get_logger(self):warn(msg)
 end
 
-local log = get_protected(_log)
+local log = {}
+function log:new(ev, o)
+    o = o or { ev = ev }
+    setmetatable(o, _log)
+    return o
+end
+
+logger = log:new(nil)
+
 return function(ev)
     return log:new(ev)
 end

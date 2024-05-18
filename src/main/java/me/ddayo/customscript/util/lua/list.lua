@@ -1,11 +1,5 @@
-local _List = { }
-
-function _List:new(o)
-    o = o or { size = 0 }
-    setmetatable(o, self)
-    self.__index = self
-    return o
-end
+local _List = {}
+_List.__index = _List
 
 function _List:push(v)
     self.size = self.size + 1
@@ -31,4 +25,9 @@ function _List:clear()
     self.size = 0
 end
 
-List = get_protected(_List)
+List = {}
+function List:new(o)
+    o = o or {size = 0}
+    setmetatable(o, _List)
+    return o
+end

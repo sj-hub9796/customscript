@@ -15,6 +15,7 @@ class LuaScriptInstance(name: String, script: String, engine: LuaEngine) {
         private set
 
     init {
+        LogManager.getLogger().info("Start script execution")
         lua.getGlobal("load_scx")
         lua.push(script)
         lua.push(name)
@@ -23,27 +24,32 @@ class LuaScriptInstance(name: String, script: String, engine: LuaEngine) {
 
         while(true) {
             if(finished) break
-            invokeEvent("tick")
+            invokeTick()
 
-            invokeEvent("on_mouse_release") {
-                lua.getGlobal("cmath")
-                lua.getField(-1, "point")
-                lua.getField(-1, "new")
-                lua.insert(-2)
-                lua.push(1.5)
-                lua.push(1.5)
-                orError { lua.pCall(3, 1) }
-                lua.remove(-1)
-                // orError { lua.load("return cmath.point:new(1.5, 1.5)") }
-                // orError { lua.pCall(0,1) }
-                lua.push(0)
-                2
-            }
+            if(finished) break
+            invokeOnMouseRelease(1.0, 2.0)
         }
     }
 
     fun proceed() {
         yieldOrError { lua.resume(0) }
+    }
+
+    fun invokeTick() = invokeEvent("tick")
+
+    fun invokeOnMouseRelease(mx: Double, my: Double) = invokeEvent("on_mouse_release") {
+        lua.getGlobal("cmath")
+        lua.getField(-1, "point")
+        lua.getField(-1, "new")
+        lua.pushValue(-2)
+        lua.push(mx)
+        lua.push(my)
+        lua.pushNil()
+        orError { lua.pCall(4, 1) }
+        lua.remove(-2)
+        lua.remove(-2)
+        lua.push(0)
+        2
     }
 
     fun invokeEvent(name: String, f: (Lua) -> Int = { 0 }) {
@@ -81,14 +87,17 @@ class LuaScriptInstance(name: String, script: String, engine: LuaEngine) {
 }
 
 class LuaEngine {
-    private val coreScriptDirStr = "/Users/dayo/IdeaProjects/customscript16/src/main/java/me/ddayo/customscript/util/lua/"
+    /// private val coreScriptDirStr = "/Users/dayo/IdeaProjects/customscript16/src/main/java/me/ddayo/customscript/util/lua/"
+    private val coreScriptDirStr = "C:/Users/dayo/Desktop/customscript/src/main/java/me/ddayo/customscript/util/lua"
     private val coreScriptDir = File(coreScriptDirStr)
-    private val mainScript = File("/Users/dayo/IdeaProjects/customscript16/src/main/java/me/ddayo/customscript/util/lua/csx_main.lua")
+    private val mainScript = File(coreScriptDir, "csx_main.lua")
     private val lua = LuaJit()
     init {
         lua.openLibraries()
         lua.push(coreScriptDirStr)
-        lua.setGlobal("baseDir")
+        lua.setGlobal("base_dir")
+
+        LogManager.getLogger().info("Loading main Script")
         orError {
             load(mainScript.readText())
         }
@@ -98,7 +107,8 @@ class LuaEngine {
         loadCoreApi("list")
         loadCore("log")
         loadCore("csx")
-        loadCoreWithName("cmath", "csx_math")
+        loadCoreApiWithName("cmath", "csx_math")
+        loadCoreExtensionWithName("csx", "csx/gui")
     }
 
     public var finalized = false
@@ -106,12 +116,18 @@ class LuaEngine {
 
     fun loadCore(name: String) = loadCoreWithName(name, name)
     fun loadCoreApi(name: String) = loadCoreApiWithName(name, name)
+    fun loadCoreExtensionWithName(name: String, fd: String) = loadCoreExtension(name, File(coreScriptDir, "$fd.lua").readText())
     fun loadCoreWithName(name: String, fd: String) = loadCore(name, File(coreScriptDir, "$fd.lua").readText())
     fun loadCoreApiWithName(name: String, fd: String) = loadCoreApi(name, File(coreScriptDir, "$fd.lua").readText())
 
-    fun loadCore(name: String, script: String) {
+    private inline fun notFinalized(f: Lua.()->LuaError) {
         if(finalized) throw IllegalStateException("Cannot load core file after script executed")
-        orError {
+        orError(f)
+    }
+
+    fun loadCore(name: String, script: String) {
+        LogManager.getLogger().info("Loading core library $name")
+        notFinalized {
             getGlobal("load_core")
             push(script)
             push(name)
@@ -119,9 +135,19 @@ class LuaEngine {
         }
     }
 
+    fun loadCoreExtension(name: String, script: String) {
+        LogManager.getLogger().info("Loading extension for $name")
+        notFinalized {
+            getGlobal("load_core_extension")
+            push(script)
+            push(name)
+            pCall(2, 0)
+        }
+    }
+
     fun loadCoreApi(name: String, script: String) {
-        if(finalized) throw IllegalStateException("Cannot load core api file after script executed")
-        orError {
+        LogManager.getLogger().info("Loading core api $name")
+        notFinalized {
             getGlobal("load_core_api")
             push(script)
             push(name)
