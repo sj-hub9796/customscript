@@ -6,8 +6,6 @@ chain_table = function(base, with)
     local mt = getmetatable(base) or {}
     setmetatable(base, {
         __index = function(t, k)
-            -- error(type(mt))
-            -- error(type(mt.__index(t, k)))
             local tr
             if type(mt.__index) == 'table' then tr = mt.__index[k] else tr = mt.__index(t, k) end
             return tr or with[k]
@@ -18,6 +16,11 @@ end
 load_script = function(dir)
     dir = base_dir .. '/' .. dir
     return loadfile(dir)()
+end
+
+local share_global_list = {}
+share_global = function(name)
+    share_global_list[name] = _G[name]
 end
 
 load_core_api = function(sc, name)
@@ -36,7 +39,7 @@ load_core_extension = function(sc, name)
     core_lib_chain[name]:push(load(sc, name, "t")())
 end
 
-load_scx = function(sc, name)
+load_scx = function(sc, name, ev_hook)
     local ev = {
         next = next,
         pairs = pairs,
@@ -100,11 +103,11 @@ load_scx = function(sc, name)
             date = os.date,
             difftime = os.difftime,
             time = os.time
-        },
-        List = List,
-        cmath = cmath,
-        logger = logger
+        }
     }
+    for k, v in pairs(share_global_list) do
+        ev[k] = v
+    end
     for k,v in pairs(core_lib) do
         ev[k] = v(ev)
     end
@@ -118,6 +121,8 @@ load_scx = function(sc, name)
     if efn == nil then
         print('Cannot load ' .. name .. ' because ' .. em)
     end
+
+    ev_hook(ev)
 
     ev.csx:push_stack({
         name = "begin",

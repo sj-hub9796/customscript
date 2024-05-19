@@ -3,26 +3,26 @@ local lm = java.import('org.apache.logging.log4j.LogManager')
 local _log = {}
 _log.__index = _log
 
-local get_logger = function(self)
-    if self.ev == nil or self.ev.csx == nil then return lm:getLogger("lua") end
-    local state = self.ev.csx:get_current_name()
+local get_logger = function(ev)
+    if ev == nil or ev.csx == nil then return lm:getLogger("lua") end
+    local state = ev.csx:get_current_name()
     return lm:getLogger(state)
 end
 
 function _log:info(msg)
-    get_logger(self):info(msg)
+    get_logger(self.ev):info(msg)
 end
 
 function _log:debug(msg)
-    get_logger(self):debug(msg)
+    get_logger(self.ev):debug(msg)
 end
 
 function _log:error(msg)
-    get_logger(self):error(msg)
+    get_logger(self.ev):error(msg)
 end
 
 function _log:warn(msg)
-    get_logger(self):warn(msg)
+    get_logger(self.ev):warn(msg)
 end
 
 local log = {}

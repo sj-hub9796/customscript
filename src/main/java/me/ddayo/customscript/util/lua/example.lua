@@ -13,7 +13,11 @@ local are = cmath.area:rect_area(cmath.point:new(1, 1), cmath.point:new(2, 2))
 log:info(csx:dump(are))
 csx:yield(csx:request_yield_frame("click", csx.rule:on_mouse_click(are), function()
     log:info("CLICK!")
+    log:info(from_server("test"))
 end))
+
+csx.renderer:translate(1, 2, 3)
+csx.renderer:translate(function() return 13 end, 2, 56)
 
 log:info("Hello, world")
 local k = 0
