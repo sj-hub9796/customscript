@@ -2,7 +2,6 @@ package me.ddayo.customscript.client.gui
 
 import com.mojang.blaze3d.matrix.MatrixStack
 import com.mojang.blaze3d.platform.GlStateManager
-import com.sun.org.apache.xml.internal.security.utils.I18n
 import me.ddayo.customscript.CustomScript
 import me.ddayo.customscript.util.native.NativeInstance
 import net.minecraft.client.Minecraft
@@ -27,7 +26,6 @@ import java.nio.ByteBuffer
 import kotlin.math.atan2
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import kotlin.system.exitProcess
 
 
 open class RenderUtilImpl : RenderUtil() {
@@ -200,11 +198,8 @@ open class RenderUtilImpl : RenderUtil() {
 
     override fun getTexHeight() = GL21.glGetTexLevelParameteri(GL21.GL_TEXTURE_2D, 0, GL21.GL_TEXTURE_HEIGHT)
 
-    override fun push(f: () -> Unit) {
-        matrix.push()
-        f()
-        matrix.pop()
-    }
+    override fun push() = matrix.push()
+    override fun pop() = matrix.pop()
 
     override fun translate(x: Double, y: Double, z: Double) = matrix.translate(x, y, z)
 
@@ -347,7 +342,14 @@ abstract class RenderUtil {
     abstract fun getTexWidth(): Int
     abstract fun getTexHeight(): Int
 
-    abstract fun push(f: () -> Unit)
+    abstract fun push()
+    abstract fun pop()
+    fun push(f: () -> Unit) {
+        push()
+        f()
+        pop()
+    }
+
     abstract fun translate(x: Double, y: Double, z: Double)
     abstract fun rotate(x: Double, y: Double, z: Double)
     abstract fun scale(x: Double, y: Double, z: Double)
