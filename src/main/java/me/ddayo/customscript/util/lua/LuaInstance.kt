@@ -11,13 +11,35 @@ import java.io.File
 
 object LuaOrInvoke {
     fun <T> into(v: LuaValue): () -> T? {
-        if (v.type() == Lua.LuaType.FUNCTION) return { v.call()?.get(0)?.toJavaObject() as? T }
+        val lua = v.state()
+        v.push()
+        val ref = lua.ref()
+        lua.pop(1)
+
+        // TODO: call unref on gc
+        if (v.type() == Lua.LuaType.FUNCTION)
+            return {
+                lua.refGet(ref)
+                lua.pCall(0, 1)
+                LogManager.getLogger().info(lua.get()?.toJavaObject())
+                lua.get()?.toJavaObject() as? T
+            }
         val fx = v.toJavaObject() as? T
         return { fx }
     }
 
     fun <T> intoA(v: LuaValue): () -> T {
-        if (v.type() == Lua.LuaType.FUNCTION) return { (v.call()?.get(0)?.toJavaObject() as? T)!! }
+        val lua = v.state()
+        v.push()
+        val ref = lua.ref()
+        lua.pop(1)
+        if (v.type() == Lua.LuaType.FUNCTION)
+            return {
+                lua.refGet(ref)
+                LogManager.getLogger().info(lua.type(-1))
+                lua.pCall(0, 1)
+                (lua.get()?.toJavaObject() as? T)!!
+            }
         val fx = v.toJavaObject() as? T
         return { fx!! }
     }
@@ -76,6 +98,10 @@ open class ScriptableInstance(name: String, script: String, lua: AbstractLua) : 
 
 open class BaseLuaEngine(coreScriptDirStr: String) :
     AbstractLuaEngine(coreScriptDirStr) {
+    companion object {
+        val CORE_DIR = "/Users/dayo/IdeaProjects/customscript16/src/main/java/me/ddayo/customscript/util/lua/"
+    }
+
     init {
         loadCoreApi("list")
         loadCore("log")
@@ -179,9 +205,11 @@ abstract class AbstractLuaEngine(coreScriptDirStr: String) {
     protected inline fun orError(f: Lua.() -> LuaError) {
         val l = f(lua)
         if (l != LuaError.OK)
-            LogManager.getLogger().error("$l, ${lua.toString(-1)}")
+            throw LuaError("$l, ${lua.toString(-1)}")
     }
 }
+
+class LuaError(message: String? = null, base: Throwable? = null) : Exception(message, base)
 
 abstract class ILuaScriptHandler(protected val lua: AbstractLua) {
     var finished = false
@@ -189,19 +217,15 @@ abstract class ILuaScriptHandler(protected val lua: AbstractLua) {
 
     protected inline fun orError(f: Lua.() -> LuaError) {
         val l = f(lua)
-        if (l != LuaError.OK) {
-            LogManager.getLogger().error("$l, ${lua.toString(-1)}")
-            throw Exception()
-        }
+        if (l != LuaError.OK)
+            throw LuaError("$l, ${lua.toString(-1)}")
     }
 
     protected inline fun yieldOrError(f: Lua.() -> LuaError) {
         val l = f(lua)
         if (l == LuaError.OK)
             finished = true
-        else if (l != LuaError.YIELD) {
-            LogManager.getLogger().error("$l, ${lua.toString(-1)}")
-            throw Exception()
-        }
+        else if (l != LuaError.YIELD)
+            throw LuaError("$l, ${lua.toString(-1)}")
     }
 }

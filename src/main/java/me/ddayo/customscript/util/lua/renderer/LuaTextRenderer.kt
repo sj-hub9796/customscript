@@ -1,6 +1,5 @@
 package me.ddayo.customscript.util.lua.renderer
 
-import com.mojang.blaze3d.matrix.MatrixStack
 import me.ddayo.customscript.client.gui.FontResource
 import me.ddayo.customscript.client.gui.RenderUtil
 import me.ddayo.customscript.client.gui.font.FontedText
@@ -46,7 +45,7 @@ class LuaTextRenderer(
             if (!usingCustomFont) {
                 scale(textScale(), textScale(), textScale())
                 Minecraft.getInstance().fontRenderer.drawString(
-                    MatrixStack(),
+                    matrix,
                     text(),
                     (textX() / textScale()).toFloat(),
                     (textY() / textScale()).toFloat(),

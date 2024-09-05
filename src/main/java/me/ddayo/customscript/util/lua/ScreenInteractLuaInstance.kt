@@ -17,8 +17,14 @@ class ScriptedScreen(private val script: ScreenScriptableInstance): GuiBase() {
         }
     }
 
+    override fun tick() {
+        script.invokeTick()
+        if(script.finished) closeScreen()
+    }
+
     override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int) = mouseHandler(mouseX, mouseY) { mx, my ->
         script.invokeOnMouseRelease(mx, my, button)
+        if(script.finished) closeScreen()
         true
     }
 }
@@ -34,20 +40,6 @@ open class ScreenInteractLuaEngine(coreScriptDirStr: String): RenderableLuaEngin
 }
 
 open class ScreenScriptableInstance(name: String, script: String, lua: AbstractLua): RenderableScriptInstance(name, script, lua) {
-    init {
-        while(true) {
-            RenderUtil.renderer.loadMatrix(MatrixStack()) {
-                renderer.render(this)
-            }
-
-            if(finished) break
-            invokeTick()
-
-            if(finished) break
-            invokeOnMouseRelease(1.5, 1.5, 0)
-        }
-    }
-
     fun setMousePos(mx: Double, my: Double) {
         lua.push(mx)
         lua.setGlobal("mouse_x")
