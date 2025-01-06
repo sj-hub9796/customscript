@@ -11,11 +11,15 @@ buildscript {
     }
 }
 
+plugins {
+    id("com.github.johnrengelman.shadow") version "7.1.2"
+}
+
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'kotlin'
 
 group = 'me.ddayo'
-version = '0.8.2'
+version = '0.8.3'
 
 java {
     archivesBaseName = 'customscript'
@@ -127,15 +131,16 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-
     minecraft 'net.minecraftforge:forge:1.16.5-36.2.35'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    implementation "org.jetbrains.kotlin:kotlin-script-runtime:$kotlin_version"
+
+    runtimeOnly 'party.iroiro.luajava:luajit-platform:3.5.0:natives-desktop'
+
+    compileOnly 'org.junit.jupiter:junit-jupiter:5.7.0'
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compileOnly "org.jetbrains.kotlin:kotlin-script-runtime:$kotlin_version"
 
     implementation 'party.iroiro.luajava:luajava:3.5.0'
     implementation 'party.iroiro.luajava:luajit:3.5.0'
-    runtimeOnly 'party.iroiro.luajava:luajit-platform:3.5.0:natives-desktop'
 }
 
 // Example for how to get properties into the manifest for reading at runtime.
@@ -163,4 +168,11 @@ compileTestKotlin {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+}
+shadowJar {
+    dependencies {
+        include(dependency("party.iroiro.luajava:luajava:3.5.0"))
+        include(dependency("party.iroiro.luajava:luajit:3.5.0"))
+    }
+    archiveFileName = project.name + "-" + project.version + ".jar"
 }
